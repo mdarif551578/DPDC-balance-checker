@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <!-- CRITICAL for mobile scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>DPDC Usage Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6 sm:p-8 md:p-12">
+
+    <!-- Container -->
+    <div class="w-full max-w-full sm:max-w-3xl md:max-w-4xl bg-white shadow-xl rounded-2xl overflow-hidden">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-8 sm:px-8 sm:py-10">
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-semibold text-white">
+                DPDC Usage Dashboard
+            </h1>
+            <p class="text-sm sm:text-base md:text-lg text-indigo-100 mt-1">
+                Electricity usage & balance overview
+            </p>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6 sm:p-8 space-y-8">
+
+            <!-- Input Form -->
+            <form id="usageForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <input
+                    type="text"
+                    id="customer_number"
+                    name="customer_number"
+                    value="29112136"
+                    placeholder="Enter Customer Number"
+                    required
+                    class="sm:col-span-2 px-4 py-4 sm:py-3 text-base sm:text-sm border border-slate-300 rounded-lg
+                           focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                />
+
+                <button
+                    type="submit"
+                    class="w-full sm:w-auto px-6 py-4 sm:py-2.5 text-base sm:text-sm font-medium text-white
+                           bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm
+                           focus:ring-4 focus:ring-blue-300 focus:outline-none">
+                    Fetch Details
+                </button>
+            </form>
+
+            <!-- Status -->
+            <p id="status" class="text-base sm:text-sm text-slate-500"></p>
+
+            <!-- Balance Card -->
+            <div
+                id="balanceCard"
+                class="hidden bg-emerald-50 border border-emerald-200 rounded-xl
+                       p-6 flex flex-col sm:flex-row items-start sm:items-center
+                       justify-between space-y-2 sm:space-y-0">
+
+                <div>
+                    <p class="text-sm sm:text-base uppercase tracking-wide text-emerald-700">
+                        Available Balance
+                    </p>
+                    <p id="balanceValue" class="text-3xl sm:text-4xl font-bold text-emerald-800">
+                        --
+                    </p>
+                </div>
+
+                <div class="text-4xl sm:text-5xl font-bold text-emerald-600">
+                    ৳
+                </div>
+            </div>
+
+            <!-- Result Table -->
+            <div id="result" class="hidden overflow-x-auto">
+                <h2 class="text-lg sm:text-xl font-semibold mb-4 text-slate-700">
+                    Account Details
+                </h2>
+
+                <table class="min-w-full text-base sm:text-sm border border-slate-200 rounded-lg overflow-hidden">
+                    <thead class="bg-slate-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium text-slate-600">
+                                Field
+                            </th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-600">
+                                Value
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultBody" class="bg-white divide-y"></tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script>
+        document.getElementById("usageForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const customerNumber = document.getElementById("customer_number").value;
+            const status = document.getElementById("status");
+            const resultDiv = document.getElementById("result");
+            const resultBody = document.getElementById("resultBody");
+            const balanceCard = document.getElementById("balanceCard");
+            const balanceValue = document.getElementById("balanceValue");
+
+            status.textContent = "Fetching customer data...";
+            resultDiv.classList.add("hidden");
+            balanceCard.classList.add("hidden");
+            resultBody.innerHTML = "";
+
+            try {
+                const response = await fetch("/api/usage", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ customer_number: customerNumber })
+                });
+
+                if (!response.ok) throw new Error("Failed to fetch data");
+
+                const data = await response.json();
+                const details = data?.data?.postBalanceDetails;
+
+                if (!details) throw new Error("No data found");
+
+                // Show balance
+                if (details.balanceRemaining !== undefined) {
+                    balanceValue.textContent = details.balanceRemaining;
+                    balanceCard.classList.remove("hidden");
+                }
+
+                // Populate table
+                for (const [key, value] of Object.entries(details)) {
+                    if (key === "balanceRemaining") continue;
+
+                    const row = `
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-slate-700 capitalize">${key}</td>
+                            <td class="px-4 py-3 text-slate-600">${value ?? "-"}</td>
+                        </tr>
+                    `;
+                    resultBody.insertAdjacentHTML("beforeend", row);
+                }
+
+                status.textContent = "";
+                resultDiv.classList.remove("hidden");
+
+            } catch (error) {
+                status.textContent = "Error: " + error.message;
+            }
+        });
+    </script>
+
+</body>
+</html>
